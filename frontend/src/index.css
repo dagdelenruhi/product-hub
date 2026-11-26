@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0b10;
+  --color-panel: #12131a;
+  --color-raise: #1a1c26;
+  --color-line: #262a36;
+  --color-dim: #8b91a3;
+  --color-accent: #8b5cf6;
+  --color-accent2: #22d3ee;
+  --color-ink: #e4e4e7;
+  --color-danger: #fb7185;
+}
+:root[data-theme="light"] {
+  --color-bg: #f5f6fa;
+  --color-panel: #ffffff;
+  --color-raise: #eceef5;
+  --color-line: #d9dde8;
+  --color-dim: #626b7f;
+  --color-accent: #7c3aed;
+  --color-accent2: #0e7490;
+  --color-ink: #171a23;
+  --color-danger: #e11d48;
+  color-scheme: light;
+}
+
+html { color-scheme: dark; }
+body {
+  @apply bg-bg text-[13px] text-ink antialiased;
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, rgb(139 92 246 / .14), transparent),
+    radial-gradient(50rem 30rem at -5% 110%, rgb(34 211 238 / .09), transparent);
+  background-attachment: fixed;
+}
+button { cursor: pointer; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-line) transparent; }
+
+.shimmer {
+  background: linear-gradient(100deg, var(--color-panel) 30%, var(--color-raise) 50%, var(--color-panel) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* Rendered markdown in the description editor (Tailwind's reset strips these). */
+.md :is(p, ul, ol, pre, blockquote, h1, h2, h3, h4) + * { margin-top: .5em; }
+.md h1 { font-size: 1.4em; font-weight: 600; }
+.md h2 { font-size: 1.2em; font-weight: 600; }
+.md :is(h3, h4) { font-size: 1.05em; font-weight: 600; }
+.md ul { list-style: disc; padding-left: 1.4em; }
+.md ol { list-style: decimal; padding-left: 1.4em; }
+.md a { color: var(--color-accent2); text-decoration: underline; }
+.md code { background: var(--color-raise); border-radius: 4px; padding: 0 .3em; font-size: .92em; }
+.md pre { background: var(--color-raise); border-radius: 8px; padding: .6em .8em; overflow-x: auto; }
+.md pre code { padding: 0; background: none; }
+.md blockquote { border-left: 3px solid var(--color-line); padding-left: .8em; color: var(--color-dim); }
+.md hr { border-color: var(--color-line); margin: .8em 0; }
+.md p:only-child:has(> br:only-child)::before { content: 'Add a description'; color: var(--color-dim); float: left; height: 0; pointer-events: none; }
