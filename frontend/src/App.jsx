@@ -6,6 +6,7 @@ import { BoardView, ListView, ReportView } from './views.jsx'
 import { TaskPanel } from './TaskPanel.jsx'
 import { GlobalSearch } from './Search.jsx'
 
+const REPO = 'https://github.com/dagdelenruhi/product-hub'
 const shortDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 function useHash() {
@@ -90,7 +91,7 @@ function KeyScreen() {
     <main className="grid min-h-screen place-items-center p-6">
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-2xl">
         <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <span className="size-5 rounded-md bg-linear-to-br from-accent to-accent2" />PRODUCT HUB
+          <span className="size-5 rounded-md bg-linear-to-br from-accent to-accent2" />Cuma
         </h1>
         <p className="mt-3 text-dim">Sign in with your own monday API key. In monday, click your profile picture, then Developers, then “My access tokens”.</p>
         <label className="mt-4 block text-xs font-semibold" htmlFor="key">monday API key</label>
@@ -101,6 +102,7 @@ function KeyScreen() {
           {state === 'busy' ? 'Checking…' : 'Continue'}
         </button>
         <p className="mt-4 text-xs text-dim">The key is saved in this browser only and is sent to monday.com and nowhere else. “Sign out” removes it. Do not use this on a shared computer.</p>
+        <p className="mt-2 text-xs text-dim">Cuma is open source: <a href={REPO} target="_blank" rel="noopener" className="underline hover:text-ink">read the code or open a pull request on GitHub</a>.</p>
       </form>
     </main>
   )
@@ -251,14 +253,15 @@ function Hub() {
     return true
   }
 
-  const View = team || view === 'board' ? BoardView : view === 'report' ? ReportView : ListView
+  const View = view === 'board' ? BoardView : view === 'report' ? ReportView : ListView
+  const path = (v, t) => `#/${id}/${v}${t ? '/' + encodeURIComponent(t) : ''}`
   const tabs = [['List', 'list'], ['Board', 'board'], ['Sprint Reporting', 'report'], ...teams.map(t => [t, 'board', t])]
 
   return (
     <div className="flex h-screen max-md:h-auto max-md:flex-col">
       <aside aria-label="Spaces" className="w-64 flex-none overflow-auto border-r border-line bg-panel/70 p-3 backdrop-blur max-md:max-h-[40vh] max-md:w-auto">
         <p className="mb-3 flex items-center gap-2 px-2 text-[13px] font-semibold tracking-wide">
-          <span className="size-5 rounded-md bg-linear-to-br from-accent to-accent2 shadow-lg shadow-accent/40" />PRODUCT HUB
+          <span className="size-5 rounded-md bg-linear-to-br from-accent to-accent2 shadow-lg shadow-accent/40" />Cuma
           <button onClick={flip} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
             className="ml-auto grid size-7 place-items-center rounded-md text-base text-dim hover:bg-raise hover:text-ink">{theme === 'light' ? '☾' : '☀'}</button>
         </p>
@@ -269,6 +272,7 @@ function Hub() {
         </>}
         <button onClick={() => saveKey('')} title="Removes your monday API key from this browser"
           className="mt-4 w-full rounded-md px-2 py-1.5 text-left text-dim hover:bg-raise hover:text-ink">Sign out</button>
+        <a href={REPO} target="_blank" rel="noopener" className="block rounded-md px-2 py-1.5 text-dim hover:bg-raise hover:text-ink">GitHub · pull requests welcome</a>
       </aside>
 
       <main className="min-w-0 flex-1 overflow-auto px-6 pb-10 pt-4">
@@ -279,9 +283,10 @@ function Hub() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-b border-line">
               <nav aria-label="Views" className="flex flex-wrap">
                 {tabs.map(([label, v, t]) => {
-                  const active = t ? team === t : !team && view === v
+                  // a team tab is the board of that team; List and Sprint Reporting keep the team picked in the filter
+                  const active = t ? view === 'board' && team === t : view === v && !(team && v === 'board')
                   return (
-                    <a key={label} href={`#/${id}/${v}${t ? '/' + encodeURIComponent(t) : ''}`} aria-current={active ? 'page' : undefined}
+                    <a key={label} href={path(v, t || (v === 'board' ? '' : team))} aria-current={active ? 'page' : undefined}
                       className={`relative px-3 py-2 ${active ? 'text-ink' : 'text-dim hover:text-ink'}`}>
                       {label}
                       {active && <motion.span layoutId="tab-active" className="absolute inset-x-2 -bottom-px h-0.5 rounded bg-linear-to-r from-accent to-accent2" />}
@@ -289,8 +294,17 @@ function Hub() {
                   )
                 })}
               </nav>
-              <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search tasks or assignees" aria-label="Search tasks"
-                className="mb-1.5 w-64 rounded-lg border border-line bg-panel px-3 py-1.5 outline-none focus:border-accent" />
+              <div className="mb-1.5 flex flex-wrap gap-2">
+                {teams.length > 0 && (
+                  <select aria-label="Team" value={team || ''} onChange={e => { location.hash = path(view, e.target.value) }}
+                    className="rounded-lg border border-line bg-panel px-2 py-1.5 outline-none focus:border-accent">
+                    <option value="">All teams</option>
+                    {teams.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                )}
+                <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search tasks or assignees" aria-label="Search tasks"
+                  className="w-64 rounded-lg border border-line bg-panel px-3 py-1.5 outline-none focus:border-accent" />
+              </div>
             </div>
             <AnimatePresence mode="wait">
               <motion.div key={view + (team || '')} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.16 }}>

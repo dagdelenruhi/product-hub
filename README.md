@@ -1,4 +1,4 @@
-# Product Hub
+# Cuma
 
 A ClickUp-style sprint board for the monday.com "PRODUCT HUB" workspace: list, board and sprint-report views, card details with
 subtasks, test findings, operational work (scripts and SQL), comments, and a search across all boards.
@@ -22,6 +22,11 @@ npm run build   # production build in frontend/dist
 ```
 
 Every push to `main` runs the tests and publishes `frontend/dist` to GitHub Pages (`.github/workflows/pages.yml`).
+
+## Contribute
+
+Pull requests are welcome at https://github.com/dagdelenruhi/product-hub. Run `npm test` and `npm run build` in `frontend/` before opening one;
+the same two commands run on every push.
 
 ## Notes
 
