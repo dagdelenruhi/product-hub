@@ -7,7 +7,7 @@ const WORKSPACE_ID = '8162750'  // monday "PRODUCT HUB" workspace
 const ITEM = `
 fragment I on Item {
   id name url group { id title }
-  column_values { id text ... on BoardRelationValue { display_value } }
+  column_values { id text ... on BoardRelationValue { display_value linked_item_ids } }
   subitems { id name board { id } column_values { id text column { title } } }
 }`
 
@@ -32,8 +32,11 @@ const QUERIES = {
   }`,
   find: 'query($id: [ID!]) { items(ids: $id) { id board { id } parent_item { id board { id } } } }',
   users: 'query { users(limit: 1000) { id name } }',
-  set: `mutation($board: ID!, $item: ID!, $col: String!, $val: String) {
-    change_simple_column_value(board_id: $board, item_id: $item, column_id: $col, value: $val) { id }
+  // the two halves of copying a card to a sprint board: the card's raw values, and the columns they must fit into
+  source: 'query($id: [ID!]) { items(ids: $id) { id name board { id } column_values { id type text value column { title } } } }',
+  target: 'query($id: [ID!]) { boards(ids: $id) { id name groups { id title } columns { id title type settings_str } } }',
+  set: `mutation($board: ID!, $item: ID!, $col: String!, $val: String, $create: Boolean) {
+    change_simple_column_value(board_id: $board, item_id: $item, column_id: $col, value: $val, create_labels_if_missing: $create) { id }
   }`,
   create: `mutation($board: ID!, $group: String, $name: String!, $values: JSON) {
     create_item(board_id: $board, group_id: $group, item_name: $name, column_values: $values) { id url }
@@ -78,6 +81,7 @@ export async function api(name, vars = {}, key = savedKey()) {
 }
 
 const cache = {}
+export const forget = id => { delete cache[id] }  // the board changed behind our back; load it again next time
 export const remember = board => (cache[board.id] = Promise.resolve(board), board)  // keep edits when the board is reopened
 
 // shortcut: loads every item of a board into the browser; move filtering to monday if boards like Sprint-Ready feel slow.

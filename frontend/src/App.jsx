@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { api, loadBoard, remember, saveKey, savedKey } from './api.js'
-import { groupBy, key, split, sprintDates, sprintState, stats } from './logic.js'
+import { api, forget, loadBoard, remember, saveKey, savedKey } from './api.js'
+import { groupBy, key, split, sprintCopy, sprintDates, sprintState, stats } from './logic.js'
 import { BoardView, ListView, ReportView } from './views.jsx'
 import { TaskPanel } from './TaskPanel.jsx'
 import { GlobalSearch } from './Search.jsx'
@@ -189,6 +189,29 @@ function Hub() {
     try { await api(how, { item: item.id }) }
     catch (e) { setBoard(b => remember({ ...b, items: [...b.items, item] })); setNotice(`Not ${how}d: ${e.message}`) }
   }
+  // Plans a Sprint-Ready card into a sprint: a linked copy on the sprint board, and the sprint's name on the card. Returns the copy's id.
+  const plan = async (item, target) => {
+    let made
+    try {
+      const [src, meta] = await Promise.all([api('source', { id: item.id }), api('target', { id: target.id })])
+      const copy = sprintCopy(src.items[0], meta.boards[0])
+      made = (await api('create', { board: target.id, group: copy.group, name: item.name, values: JSON.stringify(copy.values) })).create_item
+      forget(target.id)
+      if (!copy.linked) setNotice(`Added to ${target.name}, but that board has no column connected to this board, so the two cards are not linked.`)
+    } catch (e) { setNotice(`Not added to the sprint: ${e.message}`); return }
+    const prev = item.f.sprint
+    apply(item.id, { sprint: target.name })
+    try { await api('set', { board: board.id, item: item.id, col: board.ids.sprint, val: target.name, create: true }) }  // a new sprint has no label yet
+    catch (e) { apply(item.id, { sprint: prev }); setNotice(`Added to ${target.name}, but the Sprint field of this card was not updated: ${e.message}`) }
+    return made.id
+  }
+  // Opens the card a connect-boards column points to, whichever board it is on.
+  const openLinked = async itemId => {
+    try {
+      const found = (await api('find', { id: itemId })).items[0]
+      if (!found || !go(found.board.id, found.id)) setNotice('That card is on a board outside PRODUCT HUB, or no longer exists.')
+    } catch (e) { setNotice(e.message) }
+  }
   const subs = (itemId, fn) => setBoard(b => remember({ ...b, items: b.items.map(it => (it.id === itemId ? { ...it, subitems: fn(it.subitems) } : it)) }))
   const sub = {
     add: async (item, name, tag) => {
@@ -219,6 +242,8 @@ function Hub() {
     },
   }
 
+  const year = new Date().getFullYear()
+  const sprints = useMemo(() => boards.filter(b => sprintDates(b.name, year)).reverse(), [boards])  // newest first
   const go = (boardId, itemId) => {
     if (!boards.some(b => b.id === boardId)) return false
     if (boardId === id) setOpenId(itemId || null)
@@ -277,7 +302,7 @@ function Hub() {
       </main>
 
       <AnimatePresence>
-        {openItem && <TaskPanel key={openItem.id} board={board} item={openItem} onChange={change} onRemove={remove} sub={sub} onClose={() => setOpenId(null)} />}
+        {openItem && <TaskPanel key={openItem.id} board={board} item={openItem} onChange={change} onRemove={remove} sub={sub} sprints={sprints} onPlan={plan} onGo={go} onOpenLinked={openLinked} onClose={() => setOpenId(null)} />}
       </AnimatePresence>
       {notice && (
         <p role="alert" className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-rose-500/50 bg-panel px-4 py-2 text-danger shadow-xl">

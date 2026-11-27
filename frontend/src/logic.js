@@ -62,10 +62,13 @@ export function normalize(board, items) {
       .map(c => [norm(c.title), Object.values(JSON.parse(c.settings_str || '{}').labels || {})])),
     group: [...groupBy(kept, it => it.group?.id)].sort((a, b) => b[1].length - a[1].length)[0]?.[0],  // new tasks go where most tasks are
     items: kept.map(it => {
-      const f = {}
-      for (const cv of it.column_values) f[title[cv.id] || cv.id] = cv.display_value || cv.text || ''
+      const f = {}, links = {}  // links: ids of the cards a connect-boards column points to
+      for (const cv of it.column_values) {
+        f[title[cv.id] || cv.id] = cv.display_value || cv.text || ''
+        if (cv.linked_item_ids?.length) links[title[cv.id] || cv.id] = cv.linked_item_ids
+      }
       f.assignee ||= f['clickup assignee'] || ''  // people not matched to a monday user during the migration
-      return { id: it.id, name: it.name, url: it.url, f, subitems: it.subitems || [] }
+      return { id: it.id, name: it.name, url: it.url, f, links, subitems: it.subitems || [] }
     }),
   }
 }
@@ -115,3 +118,33 @@ export function linkTarget(text) {
 
 // Pasted text that came with formatting is only re-read as markdown when it carries markdown marks (editors like VS Code copy both).
 export const looksLikeMarkdown = text => /^\s{0,3}(#{1,6} |[-*+] |\d+[.)] |> |```)|\*\*\S|\[[^\]]+\]\([^)]+\)/m.test(text)
+
+// Planning a Sprint-Ready card into a sprint makes a copy on the sprint board that points back to it, as the migrated boards do.
+// source: the card with raw column values; target: the sprint board's groups and columns. Columns are paired by title and type.
+// Labels are matched without regard to case and left out when the sprint board lacks them, so no stray labels get created there.
+// shortcut: files, docs and subtasks are not copied; copy them too if sprint cards must carry them.
+const COPIED = ['people', 'date', 'long_text', 'text', 'numbers', 'link']
+export function sprintCopy(source, target) {
+  const values = {}
+  for (const t of target.columns) {
+    const settings = JSON.parse(t.settings_str || '{}')
+    const pick = name => Object.values(settings.labels || {}).map(l => l.name ?? l).find(l => key(l) === key(name))
+    const s = source.column_values.find(c => norm(c.column.title) === norm(t.title) && c.type === t.type)
+    if (t.type === 'board_relation') {
+      if ((settings.boardIds || []).map(String).includes(source.board.id)) values[t.id] = { item_ids: [Number(source.id)] }
+    } else if (!s) continue
+    else if (t.type === 'status') {
+      const label = pick(s.text || '') || (norm(t.title) === 'status' && pick('sprint-planned'))
+      if (label) values[t.id] = { label }
+    } else if (t.type === 'dropdown') {
+      const labels = [...new Set(split(s.text).map(pick).filter(Boolean))]
+      if (labels.length) values[t.id] = { labels }
+    } else if (COPIED.includes(t.type) && s.value) {
+      const v = JSON.parse(s.value)
+      if (v && typeof v === 'object') delete v.changed_at
+      values[t.id] = v
+    }
+  }
+  const group = (target.groups.find(g => g.title === target.name) || target.groups.find(g => !/^archived/i.test(g.title)))?.id
+  return { group, values, linked: Object.values(values).some(v => v?.item_ids) }
+}

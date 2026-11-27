@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { byAssignee, byStatus, labelOptions, linkTarget, looksLikeMarkdown, opsParts, listGroups, normalize, sprintDates, sprintState, stats, statusRank, STATUS_ORDER } from './logic.js'
+import { byAssignee, byStatus, labelOptions, linkTarget, looksLikeMarkdown, sprintCopy, opsParts, listGroups, normalize, sprintDates, sprintState, stats, statusRank, STATUS_ORDER } from './logic.js'
 
 const item = (status, extra = {}) => ({ f: { status, assignee: '', 'sprint points': '', 'due date': '', ...extra } })
 
@@ -77,4 +77,33 @@ test('pasted monday links and ids are told apart from search text', () => {
 test('looksLikeMarkdown spots markdown marks and leaves plain prose alone', () => {
   for (const md of ['# Title', 'text\n- item', '1. first', 'a **bold** word', 'see [docs](https://x.y)', '```\ncode']) assert.ok(looksLikeMarkdown(md), md)
   for (const plain of ['Just a sentence.', 'a * b - c', 'price is 3.5']) assert.ok(!looksLikeMarkdown(plain), plain)
+})
+
+test('sprintCopy pairs columns by title, matches labels loosely and links back to the source card', () => {
+  const col = (id, title, type, text, value) => ({ id, type, text, value: value === undefined ? JSON.stringify(text) : value, column: { title } })
+  const source = { id: '77', board: { id: '500' }, column_values: [
+    col('status', 'Status', 'status', 'In Test', '{"index":3}'),
+    col('priority', 'Priority', 'status', 'Prioritized', '{"index":9}'),
+    col('assignee', 'Assignee', 'people', 'Ann', '{"changed_at":"x","personsAndTeams":[{"id":1,"kind":"person"}]}'),
+    col('pts_a', 'Sprint Points', 'numbers', '5'),
+    col('team', 'Development Team', 'dropdown', 'Genesis, Unknown Team', '{"ids":[1,2]}'),
+    col('files', 'Files', 'file', 'a.png', '{"files":[]}'),
+    col('empty', 'Tags', 'text', '', null),
+  ] }
+  const target = { name: 'Sprint 15', groups: [{ id: 'old', title: 'Archived (ClickUp)' }, { id: 'g15', title: 'Sprint 15' }], columns: [
+    { id: 'status', title: 'Status', type: 'status', settings_str: '{"labels":{"1":"in test","8":"sprint-planned"}}' },
+    { id: 'priority', title: 'Priority', type: 'status', settings_str: '{"labels":{"3":"High"}}' },
+    { id: 'assignee', title: 'Assignee', type: 'people' },
+    { id: 'pts_b', title: 'Sprint Points', type: 'numbers' },
+    { id: 'team', title: 'Development Team', type: 'dropdown', settings_str: '{"labels":[{"id":0,"name":"Genesis"},{"id":1,"name":"Genesis"}]}' },
+    { id: 'files', title: 'Files', type: 'file' },
+    { id: 'tags', title: 'Tags', type: 'text' },
+    { id: 'back', title: 'Sprint-Ready card', type: 'board_relation', settings_str: '{"boardIds":[500]}' },
+    { id: 'other', title: 'Connect boards', type: 'board_relation', settings_str: '{}' },
+  ] }
+  assert.deepEqual(sprintCopy(source, target), { group: 'g15', linked: true, values: {
+    status: { label: 'in test' }, assignee: { personsAndTeams: [{ id: 1, kind: 'person' }] }, pts_b: '5', team: { labels: ['Genesis'] }, back: { item_ids: [77] },
+  } })
+  const fresh = sprintCopy({ ...source, column_values: [col('status', 'Status', 'status', 'Researching', '{"index":14}')] }, { ...target, columns: target.columns.slice(0, 1) })
+  assert.deepEqual(fresh, { group: 'g15', linked: false, values: { status: { label: 'sprint-planned' } } })
 })

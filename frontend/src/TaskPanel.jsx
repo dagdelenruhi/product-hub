@@ -56,6 +56,32 @@ function People({ value, onPick }) {
   )
 }
 
+// On a backlog board (one with a Sprint column): shows the card's sprint and adds the card to a sprint board.
+function SprintPicker({ item, sprints, onPlan, onGo }) {
+  const [pick, setPick] = useState('')
+  const [state, setState] = useState('')  // 'busy', or { board, id } of the copy just made
+  const current = sprints.find(b => b.name === item.f.sprint)
+  const add = async () => {
+    const target = sprints.find(b => b.id === pick)
+    setState('busy')
+    const id = await onPlan(item, target)
+    setState(id ? { board: target.id, id } : ''); setPick('')
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {item.f.sprint && (current
+        ? <button onClick={() => onGo(current.id)} title="Open this sprint" className="underline decoration-dim underline-offset-2 hover:text-accent2">{item.f.sprint}</button>
+        : <span>{item.f.sprint}</span>)}
+      <select aria-label="Add to sprint" value={pick} onChange={e => setPick(e.target.value)} className={FIELD}>
+        <option value="">Add to sprint…</option>
+        {sprints.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+      </select>
+      {pick && <button onClick={add} disabled={state === 'busy'} className="rounded-md bg-accent px-2.5 py-1 font-medium text-white disabled:opacity-40">{state === 'busy' ? 'Adding…' : 'Add'}</button>}
+      {state?.id && <button onClick={() => onGo(state.board, state.id)} className="text-accent2 hover:underline">Added. Open the sprint card</button>}
+    </span>
+  )
+}
+
 // Destructive buttons take a second click.
 function Confirm({ label, ask, title, onYes }) {
   const [sure, setSure] = useState(false)
@@ -156,7 +182,7 @@ function SubList({ title, big, subs, label, item, tag, sub }) {
   )
 }
 
-export function TaskPanel({ board, item, onChange, onRemove, sub, onClose }) {
+export function TaskPanel({ board, item, onChange, onRemove, sub, sprints, onPlan, onGo, onOpenLinked, onClose }) {
   const [updates, setUpdates] = useState(null)
   const [error, setError] = useState('')
   const [draft, setDraft] = useState('')
@@ -226,7 +252,13 @@ export function TaskPanel({ board, item, onChange, onRemove, sub, onClose }) {
                   onBlur={e => set('sprint points')(e.target.value)} onKeyDown={e => e.key === 'Enter' && e.target.blur()} className={`${FIELD} w-20`} />
               : f['sprint points']}</Row>
             <Row label="Time spent">{hours(f['time spent h'])}</Row>
-            <Row label="Tags">{f.tags && <span className="flex flex-wrap gap-1"><Tags text={f.tags} /></span>}</Row>
+            <Row label="Tags" wide>{f.tags && <span className="flex flex-wrap gap-1"><Tags text={f.tags} /></span>}</Row>
+            {board.ids.sprint && <Row label="Sprint" wide><SprintPicker item={item} sprints={sprints} onPlan={onPlan} onGo={onGo} /></Row>}
+            {Object.entries(item.links || {}).map(([k, ids]) => (
+              <Row key={k} label={board.titles[k] || k} wide>
+                <button onClick={() => onOpenLinked(ids[0])} title="Open the linked card" className="text-left underline decoration-dim underline-offset-2 hover:text-accent2">{f[k] || 'Open'}</button>
+              </Row>
+            ))}
           </dl>
           <h3 className="mb-2 mt-7 font-semibold">Description</h3>
           {board.ids.description
