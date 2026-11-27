@@ -6,7 +6,7 @@ import { BoardView, ListView, ReportView } from './views.jsx'
 import { TaskPanel } from './TaskPanel.jsx'
 import { GlobalSearch } from './Search.jsx'
 
-const REPO = 'https://github.com/dagdelenruhi/product-hub'
+const REPO = 'https://github.com/dagdelenruhi/cuma'
 const shortDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 function useHash() {

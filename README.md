@@ -25,7 +25,7 @@ Every push to `main` runs the tests and publishes `frontend/dist` to GitHub Page
 
 ## Contribute
 
-Pull requests are welcome at https://github.com/dagdelenruhi/product-hub. Run `npm test` and `npm run build` in `frontend/` before opening one;
+Pull requests are welcome at https://github.com/dagdelenruhi/cuma. Run `npm test` and `npm run build` in `frontend/` before opening one;
 the same two commands run on every push.
 
 ## Notes
